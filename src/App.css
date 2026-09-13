@@ -1021,3 +1021,44 @@ footer p {
   color: #1f7a5a;
   font-weight: 600;
 }
+/* Request Action Buttons */
+.request-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.request-actions button {
+  border: none;
+  padding: 7px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.accept-btn {
+  background: #e8f7ef;
+  color: #1f7a5a;
+}
+
+.accept-btn:hover {
+  background: #1f7a5a;
+  color: white;
+}
+
+.reject-btn {
+  background: #fff0f0;
+  color: #dc3545;
+}
+
+.reject-btn:hover {
+  background: #dc3545;
+  color: white;
+}
+
+.request-status {
+  font-weight: 600;
+  text-transform: capitalize;
+}

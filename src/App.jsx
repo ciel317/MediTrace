@@ -561,6 +561,8 @@ const [editMessage, setEditMessage] = useState("");
 const [updating, setUpdating] = useState(false);
 
   const [inventory, setInventory] = useState([]);
+  const [requests, setRequests] = useState([]);
+const [loadingRequests, setLoadingRequests] = useState(true);
   const [medicines, setMedicines] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -573,10 +575,11 @@ const [updating, setUpdating] = useState(false);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadInventory();
-    loadMedicines();
-  }, []);
+ useEffect(() => {
+  loadInventory();
+  loadMedicines();
+  loadRequests();
+}, []);
 
   async function loadInventory() {
     const { data, error } = await supabase
@@ -619,6 +622,44 @@ const [updating, setUpdating] = useState(false);
       setMedicines(data || []);
     }
   }
+  async function loadRequests() {
+  const { data, error } = await supabase
+    .from("requests")
+    .select(`
+      id,
+      quantity,
+      status,
+      created_at,
+      medicines (
+        name,
+        strength
+      )
+    `)
+    .eq("pharmacy_id", 1)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+  } else {
+    setRequests(data || []);
+  }
+
+  setLoadingRequests(false);
+}
+async function updateRequestStatus(requestId, newStatus) {
+  const { error } = await supabase
+    .from("requests")
+    .update({ status: newStatus })
+    .eq("id", requestId)
+    .eq("pharmacy_id", 1);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  loadRequests();
+}
 
   async function handleAddStock(e) {
     e.preventDefault();
@@ -1042,8 +1083,73 @@ async function handleDeleteStock(id) {
 
         </div>
 
+      
       </div>
+                  {/* Medicine Requests */}
+      <div className="inventory-section">
 
+        <h2>Medicine Requests</h2>
+
+        {loadingRequests ? (
+          <p>Loading requests...</p>
+        ) : requests.length === 0 ? (
+          <p>No medicine requests yet.</p>
+        ) : (
+          <div className="inventory-table">
+
+            <div className="table-header">
+              <span>Medicine</span>
+              <span>Quantity</span>
+              <span>Status</span>
+              <span>Date</span>
+            </div>
+
+            {requests.map((request) => (
+              <div className="table-row" key={request.id}>
+
+                <span>
+                  {request.medicines?.name}
+                  <small>
+                    {request.medicines?.strength}
+                  </small>
+                </span>
+
+                <span>{request.quantity}</span>
+
+                <span>
+  {request.status}
+
+  {request.status === "pending" && (
+    <div className="request-actions">
+      <button
+        className="accept-btn"
+        onClick={() => updateRequestStatus(request.id, "✅")}
+        style={{ marginRight: "6px" }}
+      >
+        Accept
+      </button>
+
+      <button
+        className="reject-btn"
+        onClick={() => updateRequestStatus(request.id, "rejected")}
+      >
+        Reject
+      </button>
+    </div>
+  )}
+</span>
+
+                <span>
+                  {new Date(request.created_at).toLocaleDateString()}
+                </span>
+
+              </div>
+            ))}
+
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
