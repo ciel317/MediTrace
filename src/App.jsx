@@ -24,7 +24,9 @@ function Navbar() {
         <Link to="/">Home</Link>
         <Link to="/medicines">Medicines</Link>
         <Link to="/pharmacies">Pharmacies</Link>
+        <Link to="/requests">My Requests</Link>
         <Link to="/about">About</Link>
+        
       </div>
 
       <Link to="/login" className="login-btn">
@@ -990,8 +992,7 @@ async function handleDeleteStock(id) {
         </div>
       )}
 
-      {/* Statistics */}
-      <div className="stats-grid"></div>
+     
       {/* Statistics */}
       <div className="stats-grid">
 
@@ -1123,7 +1124,7 @@ async function handleDeleteStock(id) {
     <div className="request-actions">
       <button
         className="accept-btn"
-        onClick={() => updateRequestStatus(request.id, "✅")}
+        onClick={() => updateRequestStatus(request.id, "accepted")}
         style={{ marginRight: "6px" }}
       >
         Accept
@@ -1150,6 +1151,123 @@ async function handleDeleteStock(id) {
         )}
 
       </div>
+    </div>
+  );
+}
+function MyRequests() {
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    loadRequests();
+  }, []);
+
+  async function loadRequests() {
+    setLoading(true);
+    setMessage("");
+
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setMessage("Please login to view your requests.");
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("requests")
+      .select(`
+        id,
+        quantity,
+        status,
+        created_at,
+        medicines(name),
+        pharmacies(name, address)
+      `)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      setMessage("Could not load your requests.");
+    } else {
+      setRequests(data || []);
+    }
+
+    setLoading(false);
+  }
+
+  return (
+    <div className="page-section requests-page">
+      <div className="section-heading">
+        <h2>My Requests</h2>
+        <p>Track the status of your medicine requests.</p>
+      </div>
+
+      {loading && <p>Loading your requests...</p>}
+
+      {!loading && message && (
+        <div className="request-message">
+          <p>{message}</p>
+          <Link to="/login" className="primary-btn">
+            Login
+          </Link>
+        </div>
+      )}
+
+      {!loading && !message && requests.length === 0 && (
+        <div className="empty-requests">
+          <h3>No requests yet</h3>
+          <p>
+            Search for a medicine and request it from an available pharmacy.
+          </p>
+          <Link to="/medicines" className="primary-btn">
+            Browse Medicines
+          </Link>
+        </div>
+      )}
+
+      {!loading && !message && requests.length > 0 && (
+        <div className="requests-list">
+          {requests.map((request) => (
+            <div className="request-card" key={request.id}>
+              <div className="request-card-top">
+                <div>
+                  <h3>{request.medicines?.name || "Medicine"}</h3>
+                  <p className="request-pharmacy">
+                    {request.pharmacies?.name || "Pharmacy"}
+                  </p>
+                  <p className="request-address">
+                    {request.pharmacies?.address || "Address unavailable"}
+                  </p>
+                </div>
+
+                <span
+                  className={`request-status ${request.status?.toLowerCase()}`}
+                >
+                  {request.status}
+                </span>
+              </div>
+
+              <div className="request-details">
+                <span>
+                  <strong>Quantity:</strong> {request.quantity}
+                </span>
+
+                <span>
+                  <strong>Requested:</strong>{" "}
+                  {request.created_at
+                    ? new Date(request.created_at).toLocaleDateString()
+                    : "N/A"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1188,7 +1306,10 @@ function App() {
           path="/about"
           element={<About />}
         />
+        <Route path="/requests" element={<MyRequests />} />
         <Route path="/dashboard" element={<Dashboard />} />
+
+        
 
       </Routes>
 
