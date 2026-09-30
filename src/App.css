@@ -944,6 +944,66 @@ footer p {
   margin-top: 10px;
   font-size: 14px;
 }
+.verify-composition-btn {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #197a68;
+  background: #edf8f4;
+  color: #197a68;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.verify-composition-btn:hover {
+  background: #dff2eb;
+}
+
+.composition-verified {
+  color: #21755f;
+  background: #e8f6f0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 8px 0;
+}
+
+.composition-mismatch {
+  color: #b24848;
+  background: #fdeaea;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 8px 0;
+}
+
+.composition-badge {
+  display: inline-block;
+  width: fit-content;
+  margin-top: 5px;
+  padding: 4px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.composition-badge.verified {
+  background: #e8f6f0;
+  color: #21755f;
+}
+
+.composition-badge.mismatch {
+  background: #fdeaea;
+  color: #b24848;
+}
+
+.composition-badge.not-verified {
+  background: #f1f3f2;
+  color: #687772;
+}
 .row-actions {
   display: flex;
   align-items: center;

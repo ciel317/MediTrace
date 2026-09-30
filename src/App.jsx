@@ -574,8 +574,11 @@ const [loadingRequests, setLoadingRequests] = useState(true);
   const [batchNumber, setBatchNumber] = useState("");
   const [quantity, setQuantity] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
-  const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
+ const [message, setMessage] = useState("");
+const [saving, setSaving] = useState(false);
+
+const [chemicalComposition, setChemicalComposition] = useState("");
+const [compositionStatus, setCompositionStatus] = useState("Not Verified");
 
  useEffect(() => {
   loadInventory();
@@ -586,16 +589,18 @@ const [loadingRequests, setLoadingRequests] = useState(true);
   async function loadInventory() {
     const { data, error } = await supabase
       .from("inventory")
-      .select(`
-        id,
-        batch_number,
-        quantity,
-        expiry_date,
-        medicines (
-          name,
-          strength
-        ),
-        pharmacies (
+     .select(`
+  id,
+  batch_number,
+  quantity,
+  expiry_date,
+  entered_composition,
+  composition_status,
+  medicines (
+    name,
+    strength
+  ),
+  pharmacies (
           id,
           name
         )
@@ -613,17 +618,17 @@ const [loadingRequests, setLoadingRequests] = useState(true);
   }
 
   async function loadMedicines() {
-    const { data, error } = await supabase
-      .from("medicines")
-      .select("id, name, strength")
-      .order("name");
+  const { data, error } = await supabase
+    .from("medicines")
+    .select("id, name, strength, chemical_composition")
+    .order("name");
 
-    if (error) {
-      console.error(error);
-    } else {
-      setMedicines(data || []);
-    }
+  if (error) {
+    console.error(error);
+  } else {
+    setMedicines(data || []);
   }
+}
   async function loadRequests() {
   const { data, error } = await supabase
     .from("requests")
@@ -660,53 +665,101 @@ async function updateRequestStatus(requestId, newStatus) {
     return;
   }
 
-  loadRequests();
+   loadRequests();
+
 }
 
-  async function handleAddStock(e) {
-    e.preventDefault();
+function verifyComposition() {
+  const selectedMedicine = medicines.find(
+    medicine => medicine.id === Number(medicineId)
+  );
 
-    if (!medicineId || !batchNumber || !quantity || !expiryDate) {
-      setMessage("Please fill all fields.");
-      return;
-    }
-
-    setSaving(true);
-    setMessage("");
-
-    const { error } = await supabase
-      .from("inventory")
-      .insert({
-        medicine_id: Number(medicineId),
-        pharmacy_id: 1,
-        batch_number: batchNumber,
-        quantity: Number(quantity),
-        expiry_date: expiryDate
-      });
-
-    if (error) {
-      console.error(error);
-      setMessage(error.message);
-      setSaving(false);
-      return;
-    }
-
-    setMessage("Stock added successfully!");
-
-    setMedicineId("");
-    setBatchNumber("");
-    setQuantity("");
-    setExpiryDate("");
-
-    await loadInventory();
-
-    setSaving(false);
-
-    setTimeout(() => {
-      setShowForm(false);
-      setMessage("");
-    }, 1000);
+  if (!selectedMedicine) {
+    setCompositionStatus("Not Verified");
+    setMessage("Please select a medicine first.");
+    return;
   }
+
+  if (!chemicalComposition.trim()) {
+    setCompositionStatus("Not Verified");
+    setMessage("Please enter the chemical composition.");
+    return;
+  }
+
+  const entered = chemicalComposition.trim().toLowerCase();
+
+  const reference = (selectedMedicine.chemical_composition || "")
+    .trim()
+    .toLowerCase();
+
+  if (entered === reference) {
+    setCompositionStatus("Verified");
+    setMessage("Composition Verified ✓");
+  } else {
+    setCompositionStatus("Mismatch");
+    setMessage("Composition Mismatch ✕");
+  }
+}
+
+async function handleAddStock(e) {
+  e.preventDefault();
+
+  if (
+    !medicineId ||
+    !batchNumber ||
+    !quantity ||
+    !expiryDate ||
+    !chemicalComposition
+  ) {
+    setMessage("Please fill all fields.");
+    return;
+  }
+
+  if (compositionStatus !== "Verified") {
+    setMessage("Please verify the chemical composition first.");
+    return;
+  }
+
+  setSaving(true);
+  setMessage("");
+
+  const { error } = await supabase
+    .from("inventory")
+    .insert({
+      medicine_id: Number(medicineId),
+      pharmacy_id: 1,
+      batch_number: batchNumber,
+      quantity: Number(quantity),
+      expiry_date: expiryDate,
+      entered_composition: chemicalComposition.trim(),
+      composition_status: "Verified"
+    });
+
+  if (error) {
+    console.error(error);
+    setMessage(error.message);
+    setSaving(false);
+    return;
+  }
+
+  setMessage("Stock added successfully!");
+
+  setMedicineId("");
+  setBatchNumber("");
+  setQuantity("");
+  setExpiryDate("");
+  setChemicalComposition("");
+  setCompositionStatus("Not Verified");
+
+  await loadInventory();
+
+  setSaving(false);
+
+  setTimeout(() => {
+    setShowForm(false);
+    setMessage("");
+  }, 1000);
+}
 
   function getStatus(item) {
     const today = new Date();
@@ -878,6 +931,49 @@ async function handleDeleteStock(id) {
                   onChange={(e) => setExpiryDate(e.target.value)}
                 />
               </div>
+              <div className="form-group">
+  <label>Chemical Composition</label>
+
+  <input
+    type="text"
+    placeholder="Example: Paracetamol 500mg"
+    value={chemicalComposition}
+    onChange={(e) => {
+      setChemicalComposition(e.target.value);
+      setCompositionStatus("Not Verified");
+      setMessage("");
+    }}
+  />
+
+  {medicineId && (
+    <small style={{ display: "block", marginTop: "6px", color: "#60736e" }}>
+      Reference:{" "}
+      {medicines.find(
+        medicine => medicine.id === Number(medicineId)
+      )?.chemical_composition || "Not available"}
+    </small>
+  )}
+</div>
+
+<button
+  type="button"
+  className="verify-composition-btn"
+  onClick={verifyComposition}
+>
+  Check Composition
+</button>
+
+{compositionStatus === "Verified" && (
+  <p className="composition-verified">
+    ✓ Composition Verified
+  </p>
+)}
+
+{compositionStatus === "Mismatch" && (
+  <p className="composition-mismatch">
+    ✕ Composition Mismatch
+  </p>
+)}
 
               {message && (
                 <p className="stock-message">
@@ -1052,9 +1148,21 @@ async function handleDeleteStock(id) {
 
              <span className="row-actions">
 
-  <span className="inventory-status">
-    {getStatus(item)}
-  </span>
+ <span className="inventory-status">
+  {getStatus(item)}
+
+  <small
+    className={
+      item.composition_status === "Verified"
+        ? "composition-badge verified"
+        : item.composition_status === "Mismatch"
+        ? "composition-badge mismatch"
+        : "composition-badge not-verified"
+    }
+  >
+    {item.composition_status || "Not Verified"}
+  </small>
+</span>
   
 
   <button
