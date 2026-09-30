@@ -20,3 +20,68 @@ body {
   width: 100%;
   min-height: 100vh;
 }
+/* Same Constituent Medicines */
+
+.same-constituent-section {
+  margin-top: 50px;
+  padding-top: 10px;
+}
+
+.same-constituent-section h2 {
+  margin-bottom: 22px;
+  font-size: 28px;
+  color: #123b3b;
+}
+
+.same-constituent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.same-constituent-card {
+  background: #ffffff;
+  border: 1px solid #dce9e6;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.same-constituent-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.same-constituent-card .medicine-category {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #16806d;
+}
+
+.same-constituent-card h3 {
+  margin: 0 0 8px;
+  font-size: 23px;
+  color: #123b3b;
+}
+
+.same-constituent-card p:not(.medicine-category) {
+  margin: 5px 0;
+  color: #526b6b;
+  font-size: 16px;
+}
+
+.same-constituent-link {
+  display: inline-block;
+  margin-top: 16px;
+  color: #16806d;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.same-constituent-link:hover {
+  text-decoration: underline;
+}

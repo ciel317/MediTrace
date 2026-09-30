@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
   Search,
@@ -408,10 +408,11 @@ const [requesting, setRequesting] = useState(null);
 
   const [medicine, setMedicine] = useState(null);
   const [inventory, setInventory] = useState([]);
+  const [sameConstituentMedicines, setSameConstituentMedicines] = useState([]);
 
   useEffect(() => {
-    loadDetails();
-  }, []);
+  loadDetails();
+}, [id]);
 
   async function loadDetails() {
 
@@ -422,6 +423,23 @@ const [requesting, setRequesting] = useState(null);
       .single();
 
     setMedicine(med);
+    if (med?.chemical_composition) {
+  const { data: sameMeds, error: sameMedsError } = await supabase
+    .from("medicines")
+    .select("id, name, generic_name, strength, category, chemical_composition")
+    .eq("generic_name", med.generic_name)
+    .neq("id", Number(id))
+    .order("name");
+
+  if (sameMedsError) {
+    console.error(sameMedsError);
+    setSameConstituentMedicines([]);
+  } else {
+    setSameConstituentMedicines(sameMeds || []);
+  }
+} else {
+  setSameConstituentMedicines([]);
+}
 
     const { data } = await supabase
       .from("inventory")
@@ -546,8 +564,36 @@ const [requesting, setRequesting] = useState(null);
             </div>
           );
         })}
+        
 
       </div>
+
+      {sameConstituentMedicines.length > 0 && (
+        <div className="same-constituent-section">
+          <h2>Medicines with the Same Composition</h2>
+
+          <div className="same-constituent-grid">
+            {sameConstituentMedicines.map((item) => (
+              <div className="same-constituent-card" key={item.id}>
+                <p className="medicine-category">{item.category}</p>
+
+                <h3>{item.name}</h3>
+
+                <p>{item.generic_name}</p>
+
+                <p>{item.strength}</p>
+
+                <Link
+                  to={`/medicines/${item.id}`}
+                  className="same-constituent-link"
+                >
+                  View Details
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
     </section>
   );
@@ -1438,7 +1484,7 @@ function App() {
 
 
 function MedicineRoute() {
-  const id = window.location.pathname.split("/").pop();
+  const { id } = useParams();
 
   return <MedicineDetails id={id} />;
 }
