@@ -1236,3 +1236,14 @@ footer p {
     gap: 8px;
   }
 }
+.login-toggle {
+  background: transparent !important;
+  color: #1d7a68 !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: inherit;
+}
+.login-card button:disabled { opacity: .65; cursor: wait; }

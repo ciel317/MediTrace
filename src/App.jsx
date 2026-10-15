@@ -292,78 +292,93 @@ function Pharmacies() {
 }
 
 
-// LOGIN PAGE
+// LOGIN AND CUSTOMER REGISTRATION
 function Login() {
   const navigate = useNavigate();
+  const [isSignup, setIsSignup] = useState(false);
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  async function handleLogin(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
+    setMessage("");
+    setBusy(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    if (isSignup) {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { full_name: fullName.trim(), role: "customer" } }
+      });
 
-    if (error) {
-  setMessage(error.message);
-} else {
-  navigate("/dashboard");
-}
+      if (error) {
+        setMessage(error.message);
+      } else if (data.session) {
+        setMessage("Account created successfully!");
+        navigate("/requests");
+      } else {
+        setMessage("Account created. Check your email to confirm your account, then log in.");
+        setIsSignup(false);
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password
+      });
+
+      if (error) {
+        setMessage(error.message);
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        navigate(profile?.role === "pharmacy" ? "/dashboard" : "/requests");
+      }
+    }
+    setBusy(false);
   }
 
   return (
     <section className="login-page">
-
       <div className="login-card">
-
         <div className="logo login-logo">
           <div className="logo-icon">M</div>
           <span>MediTrace</span>
         </div>
-
-        <h1>Welcome back</h1>
-
-        <p>
-          Login to access your MediTrace account.
-        </p>
-
-        <form onSubmit={handleLogin}>
-
+        <h1>{isSignup ? "Create your account" : "Welcome back"}</h1>
+        <p>{isSignup ? "Register to request and track medicines." : "Login to access your MediTrace account."}</p>
+        <form onSubmit={handleSubmit}>
+          {isSignup && <>
+            <label>Full name</label>
+            <input type="text" placeholder="Enter your full name" value={fullName}
+              onChange={(e) => setFullName(e.target.value)} required />
+          </>}
           <label>Email</label>
-
-          <input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-
+          <input type="email" placeholder="Enter your email" value={email}
+            onChange={(e) => setEmail(e.target.value)} required />
           <label>Password</label>
-
-          <input
-            type="password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-
-          <button type="submit">
-            Login
+          <input type="password" placeholder="At least 6 characters" minLength={6}
+            value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <button type="submit" disabled={busy}>
+            {busy ? "Please wait..." : isSignup ? "Create account" : "Login"}
           </button>
-
         </form>
-
-        {message && (
-          <p className="login-message">{message}</p>
-        )}
-
+        {message && <p className="login-message" role="status">{message}</p>}
+        <p style={{ marginTop: 18, marginBottom: 0 }}>
+          {isSignup ? "Already have an account? " : "New to MediTrace? "}
+          <button type="button" className="login-toggle"
+            onClick={() => { setIsSignup(!isSignup); setMessage(""); }}>
+            {isSignup ? "Login" : "Create an account"}
+          </button>
+        </p>
       </div>
-
     </section>
   );
 }
@@ -609,6 +624,7 @@ const [editMessage, setEditMessage] = useState("");
 const [updating, setUpdating] = useState(false);
 
   const [inventory, setInventory] = useState([]);
+  const [pharmacyId, setPharmacyId] = useState(1);
   const [requests, setRequests] = useState([]);
 const [loadingRequests, setLoadingRequests] = useState(true);
   const [medicines, setMedicines] = useState([]);
@@ -627,12 +643,31 @@ const [chemicalComposition, setChemicalComposition] = useState("");
 const [compositionStatus, setCompositionStatus] = useState("Not Verified");
 
  useEffect(() => {
-  loadInventory();
-  loadMedicines();
-  loadRequests();
+  async function initializeDashboard() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setLoading(false);
+      setLoadingRequests(false);
+      return;
+    }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, pharmacy_id")
+      .eq("id", user.id)
+      .maybeSingle();
+    const activePharmacyId = profile?.role === "pharmacy" && profile?.pharmacy_id
+      ? Number(profile.pharmacy_id) : 1;
+    setPharmacyId(activePharmacyId);
+    await Promise.all([
+      loadInventory(activePharmacyId),
+      loadMedicines(),
+      loadRequests(activePharmacyId)
+    ]);
+  }
+  initializeDashboard();
 }, []);
 
-  async function loadInventory() {
+  async function loadInventory(activePharmacyId = pharmacyId) {
     const { data, error } = await supabase
       .from("inventory")
      .select(`
@@ -651,7 +686,7 @@ const [compositionStatus, setCompositionStatus] = useState("Not Verified");
           name
         )
       `)
-      .eq("pharmacy_id", 1)
+      .eq("pharmacy_id", activePharmacyId)
       .order("expiry_date");
 
     if (error) {
@@ -675,26 +710,37 @@ const [compositionStatus, setCompositionStatus] = useState("Not Verified");
     setMedicines(data || []);
   }
 }
-  async function loadRequests() {
+  async function loadRequests(activePharmacyId = pharmacyId) {
   const { data, error } = await supabase
     .from("requests")
     .select(`
       id,
+      user_id,
       quantity,
       status,
       created_at,
-      medicines (
-        name,
-        strength
-      )
+      medicines (name, strength)
     `)
-    .eq("pharmacy_id", 1)
+    .eq("pharmacy_id", activePharmacyId)
     .order("created_at", { ascending: false });
 
   if (error) {
     console.error(error);
   } else {
-    setRequests(data || []);
+    const userIds = [...new Set((data || []).map((request) => request.user_id).filter(Boolean))];
+    let profilesById = {};
+    if (userIds.length) {
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, customer_code")
+        .in("id", userIds);
+      if (profilesError) console.error("Could not load customer profiles:", profilesError);
+      profilesById = Object.fromEntries((profiles || []).map((profile) => [profile.id, profile]));
+    }
+    setRequests((data || []).map((request) => ({
+      ...request,
+      customer: profilesById[request.user_id] || null
+    })));
   }
 
   setLoadingRequests(false);
@@ -704,7 +750,7 @@ async function updateRequestStatus(requestId, newStatus) {
     .from("requests")
     .update({ status: newStatus })
     .eq("id", requestId)
-    .eq("pharmacy_id", 1);
+    .eq("pharmacy_id", pharmacyId);
 
   if (error) {
     alert(error.message);
@@ -773,7 +819,7 @@ async function handleAddStock(e) {
     .from("inventory")
     .insert({
       medicine_id: Number(medicineId),
-      pharmacy_id: 1,
+      pharmacy_id: pharmacyId,
       batch_number: batchNumber,
       quantity: Number(quantity),
       expiry_date: expiryDate,
@@ -861,7 +907,7 @@ async function handleAddStock(e) {
       expiry_date: editExpiry
     })
     .eq("id", editingItem.id)
-    .eq("pharmacy_id", 1);
+    .eq("pharmacy_id", pharmacyId);
 
   if (error) {
     console.error(error);
@@ -890,7 +936,7 @@ async function handleDeleteStock(id) {
     .from("inventory")
     .delete()
     .eq("id", id)
-    .eq("pharmacy_id", 1);
+    .eq("pharmacy_id", pharmacyId);
 
   if (error) {
     alert(error.message);
@@ -1253,7 +1299,7 @@ async function handleDeleteStock(id) {
           <div className="inventory-table">
 
             <div className="table-header">
-              <span>Medicine</span>
+              <span>Medicine / Customer</span>
               <span>Quantity</span>
               <span>Status</span>
               <span>Date</span>
@@ -1264,9 +1310,10 @@ async function handleDeleteStock(id) {
 
                 <span>
                   {request.medicines?.name}
-                  <small>
-                    {request.medicines?.strength}
-                  </small>
+                  <small>{request.medicines?.strength}</small>
+                  <small><strong>Customer ID:</strong> {request.customer?.customer_code || "Profile pending"}</small>
+                  <small><strong>Email:</strong> {request.customer?.email || "Unavailable"}</small>
+                  {request.customer?.full_name && <small>{request.customer.full_name}</small>}
                 </span>
 
                 <span>{request.quantity}</span>
